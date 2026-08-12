@@ -12,6 +12,23 @@ path = "src/main.rs"
 default = []
 regenerate-protos = []
 testkit = ["gkg-analytics/testkit"]
+# FIPS: flip the shared rustls crypto provider to its FIPS backend. rustls's
+# own `fips` feature enables `aws-lc-rs/fips` (the validated aws-lc-fips-sys
+# module) AND `webpki/aws-lc-rs-fips`, so the whole rustls-based TLS stack
+# (tonic `tls-aws-lc`, clickhouse `rustls-tls-aws-lc`, hyper-rustls, rcgen) uses
+# the FIPS module via Cargo feature unification — gkg-server already installs
+# the aws_lc_rs provider (`rustls::crypto::aws_lc_rs::default_provider()`), so no
+# runtime code changes. This is the ecosystem-canonical switch, deliberately via
+# `rustls/fips` rather than a bespoke `aws-lc-rs/fips` toggle (which would miss
+# `webpki/aws-lc-rs-fips`).
+#
+# NOTE: `aws-lc-sys` (the non-FIPS backend) is still COMPILED but UNUSED: rustls's
+# `aws_lc_rs` feature hardcodes `aws-lc-rs/aws-lc-sys`, and there is no rustls
+# feature that provides the provider without it. `aws-lc-rs` `extern crate`s only
+# `aws-lc-fips-sys` when `fips` is set (the two sys crates have distinct `links`
+# keys, so they coexist with no collision and only the FIPS module is linked).
+# Dropping the unused build would require an upstream rustls change.
+fips = ["rustls/fips"]
 
 [dependencies]
 mimalloc = { workspace = true, features = ["secure"] }
